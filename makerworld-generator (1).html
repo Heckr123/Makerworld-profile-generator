@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MakerWorld AI Profile Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --card: #1a1a26;
+    --border: #2a2a3d;
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --text: #e8e8f0;
+    --muted: #7070a0;
+    --success: #00ff88;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 24px 60px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header { text-align: center; margin-bottom: 40px; }
+
+  .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+  .logo-badge::before { content: '●'; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  h1 { font-size: clamp(28px, 5vw, 50px); font-weight: 800; line-height: 1.1; letter-spacing: -1px; margin-bottom: 10px; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 15px; }
+
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: rgba(0,229,255,0.04); }
+  .upload-zone.has-image { padding: 0; border-style: solid; border-color: var(--accent); }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 36px; margin-bottom: 12px; }
+  .upload-text { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+  .upload-hint { color: var(--muted); font-size: 13px; font-family: 'Space Mono', monospace; }
+  #preview-img { width: 100%; max-height: 340px; object-fit: cover; border-radius: 14px; display: none; }
+
+  .btn-generate {
+    width: 100%;
+    padding: 18px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+  .btn-generate:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,229,255,0.3); }
+  .btn-generate:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-generate.loading::after {
+    content: '';
+    position: absolute; top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 1.1s infinite;
+  }
+  @keyframes shimmer { to { left: 100%; } }
+
+  .results { display: none; flex-direction: column; gap: 14px; animation: fadeUp 0.4s ease; }
+  .results.visible { display: flex; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  .result-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    transition: border-color 0.2s;
+  }
+  .result-card:hover { border-color: rgba(0,229,255,0.25); }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .card-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    color: var(--accent);
+    padding: 7px 16px;
+    border-radius: 7px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .copy-btn:hover { background: rgba(0,229,255,0.15); transform: translateY(-1px); }
+  .copy-btn.copied { color: var(--success); border-color: var(--success); background: rgba(0,255,136,0.08); }
+
+  .result-content { font-size: 14px; line-height: 1.75; color: var(--text); }
+
+  .tags-list { display: flex; flex-wrap: wrap; gap: 7px; }
+  .tag {
+    background: rgba(255,107,53,0.1);
+    border: 1px solid rgba(255,107,53,0.25);
+    color: var(--accent2);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .settings-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .setting-item { background: rgba(0,229,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .setting-key { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; margin-bottom: 3px; text-transform: uppercase; }
+  .setting-val { font-size: 13px; font-weight: 700; }
+
+  .score-row { display: flex; align-items: center; gap: 16px; }
+  .reach-score { font-size: 28px; font-weight: 800; color: var(--success); flex-shrink: 0; }
+  .score-bar { flex: 1; background: var(--border); height: 6px; border-radius: 999px; overflow: hidden; }
+  .score-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); width: 0%; transition: width 1s ease; border-radius: 999px; }
+  .score-reason { font-size: 12px; color: var(--muted); margin-top: 6px; font-family: 'Space Mono', monospace; }
+
+  .action-bar {
+    display: none;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .action-bar.visible { display: flex; }
+
+  .btn-copy-all {
+    flex: 1;
+    padding: 16px;
+    background: transparent;
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    border-radius: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-copy-all:hover { background: rgba(0,229,255,0.08); transform: translateY(-1px); }
+  .btn-copy-all.copied { color: var(--success); border-color: var(--success); }
+
+  .btn-open-mw {
+    flex: 1;
+    padding: 16px;
+    background: linear-gradient(135deg, #ff6b35, #ff3b8a);
+    border: none;
+    color: #fff;
+    border-radius: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-open-mw:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(255,107,53,0.35); }
+
+  .helper-note {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    margin-top: 8px;
+    line-height: 1.7;
+  }
+
+  .error-msg {
+    background: rgba(255,80,80,0.07);
+    border: 1px solid rgba(255,80,80,0.25);
+    color: #ff8080;
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: 'Space Mono', monospace;
+    display: none;
+    margin-bottom: 12px;
+  }
+  .error-msg.visible { display: block; }
+
+  @media (max-width: 600px) {
+    .settings-grid { grid-template-columns: 1fr 1fr; }
+    .action-bar { flex-direction: column; }
+    .upload-zone { padding: 28px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo-badge">Free · No API Key Needed</div>
+    <h1>Generate Your<br><span>MakerWorld Profile</span></h1>
+    <p class="subtitle">Upload a photo → get a fully optimized listing to copy into MakerWorld</p>
+  </header>
+
+  <div class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" accept="image/*">
+    <img id="preview-img" alt="Preview">
+    <div id="upload-placeholder">
+      <div class="upload-icon">📸</div>
+      <div class="upload-text">Drop your 3D print photo here</div>
+      <div class="upload-hint">PNG · JPG · WEBP · Click or drag & drop</div>
+    </div>
+  </div>
+
+  <button class="btn-generate" id="gen-btn" disabled>
+    ✦ Generate MakerWorld Profile
+  </button>
+
+  <div class="error-msg" id="error-msg"></div>
+
+  <div class="results" id="results">
+
+    <div class="result-card">
+      <div class="card-header">
+        <span class="card-label">📌 Title</span>
+        <button class="copy-btn" id="copy-title">📋 Copy Title</button>
+      </div>
+      <div class="result-content" id="out-title"></div>
+    </div>
+
+    <div class="result-card">
+      <div class="card-header">
+        <span class="card-label">📝 Description</span>
+        <button class="copy-btn" id="copy-desc">📋 Copy Description</button>
+      </div>
+      <div class="result-content" id="out-desc"></div>
+    </div>
+
+    <div class="result-card">
+      <div class="card-header">
+        <span class="card-label">🏷️ Tags</span>
+        <button class="copy-btn" id="copy-tags">📋 Copy Tags</button>
+      </div>
+      <div id="out-tags" class="tags-list"></div>
+    </div>
+
+    <div class="result-card">
+      <div class="card-header">
+        <span class="card-label">⚙️ Recommended Print Settings</span>
+      </div>
+      <div id="out-settings" class="settings-grid"></div>
+    </div>
+
+    <div class="result-card">
+      <div class="card-header">
+        <span class="card-label">📈 Estimated Reach Score</span>
+      </div>
+      <div class="score-row">
+        <div class="reach-score" id="out-score">—</div>
+        <div style="flex:1">
+          <div class="score-bar"><div class="score-fill" id="score-fill"></div></div>
+        </div>
+      </div>
+      <div class="score-reason" id="out-reason"></div>
+    </div>
+
+    <div class="action-bar" id="action-bar">
+      <button class="btn-copy-all" id="copy-all-btn">⬇ Copy Full Profile</button>
+      <a class="btn-open-mw" href="https://makerworld.com/en/upload" target="_blank">
+        🚀 Open MakerWorld Upload
+      </a>
+    </div>
+
+    <p class="helper-note">
+      💡 Hit <strong style="color:var(--accent)">Copy Full Profile</strong> → open MakerWorld → paste title, description & tags into each field.
+    </p>
+
+  </div>
+</div>
+
+<script>
+let imageBase64 = null;
+let mediaType = 'image/jpeg';
+let generatedData = null;
+
+const uploadZone = document.getElementById('upload-zone');
+const fileInput  = document.getElementById('file-input');
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
+document.getElementById('gen-btn').addEventListener('click', generate);
+document.getElementById('copy-title').addEventListener('click', () => copyField('out-title', 'copy-title', '📋 Copy Title'));
+document.getElementById('copy-desc').addEventListener('click',  () => copyField('out-desc',  'copy-desc',  '📋 Copy Description'));
+document.getElementById('copy-tags').addEventListener('click',  copyTagsHandler);
+document.getElementById('copy-all-btn').addEventListener('click', copyAll);
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const url = e.target.result;
+    imageBase64 = url.split(',')[1];
+    mediaType   = url.startsWith('data:image/png')  ? 'image/png'
+                : url.startsWith('data:image/webp') ? 'image/webp' : 'image/jpeg';
+    document.getElementById('preview-img').src = url;
+    document.getElementById('preview-img').style.display = 'block';
+    document.getElementById('upload-placeholder').style.display = 'none';
+    uploadZone.classList.add('has-image');
+    document.getElementById('gen-btn').disabled = false;
+    document.getElementById('results').classList.remove('visible');
+    document.getElementById('action-bar').classList.remove('visible');
+    document.getElementById('error-msg').classList.remove('visible');
+    generatedData = null;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function generate() {
+  if (!imageBase64) return;
+  const btn = document.getElementById('gen-btn');
+  btn.disabled = true;
+  btn.textContent = '⟳ Analyzing your print...';
+  btn.classList.add('loading');
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('action-bar').classList.remove('visible');
+  document.getElementById('error-msg').classList.remove('visible');
+
+  const prompt = `You are a MakerWorld listing expert. Analyze this 3D printed object and generate a fully optimized listing profile to maximize reach and downloads on MakerWorld (Bambu Lab's model sharing platform).
+
+Return ONLY valid JSON — no markdown, no backticks, no explanation:
+{
+  "title": "SEO-optimized title 50-70 chars with key search terms",
+  "description": "4 paragraphs: 1) what it is and why it's cool, 2) who it's for and use cases, 3) design highlights and features, 4) call to action encouraging likes and follows",
+  "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8","tag9","tag10","tag11","tag12"],
+  "print_settings": {
+    "layer_height": "0.2mm",
+    "infill": "15%",
+    "supports": "No",
+    "material": "PLA",
+    "print_time": "~45 min",
+    "difficulty": "Easy"
+  },
+  "reach_score": 87,
+  "reach_reason": "One sentence explaining why this listing will perform well"
+}
+Tags: include object type, use case, style, material, difficulty, printer type, seasonal if relevant, trending maker terms. Lowercase, hyphens not spaces.`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1500,
+        messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
+          { type: "text", text: prompt }
+        ]}]
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    if (!data.content || !Array.isArray(data.content)) throw new Error('Unexpected response: ' + JSON.stringify(data).slice(0,200));
+
+    const raw   = data.content.map(b => b.text || '').join('');
+    const clean = raw.replace(/```json|```/g, '').trim();
+    generatedData = JSON.parse(clean);
+    renderResults(generatedData);
+  } catch (err) {
+    const el = document.getElementById('error-msg');
+    el.textContent = '⚠ ' + err.message;
+    el.classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✦ Generate MakerWorld Profile';
+    btn.classList.remove('loading');
+  }
+}
+
+function renderResults(r) {
+  document.getElementById('out-title').textContent = r.title;
+  document.getElementById('out-desc').textContent  = r.description;
+
+  const tagsEl = document.getElementById('out-tags');
+  tagsEl.innerHTML = '';
+  r.tags.forEach(t => {
+    const s = document.createElement('span');
+    s.className = 'tag'; s.textContent = t;
+    tagsEl.appendChild(s);
+  });
+
+  const settingsEl = document.getElementById('out-settings');
+  settingsEl.innerHTML = '';
+  Object.entries(r.print_settings).forEach(([k, v]) => {
+    settingsEl.innerHTML += `<div class="setting-item"><div class="setting-key">${k.replace(/_/g,' ')}</div><div class="setting-val">${v}</div></div>`;
+  });
+
+  const score = r.reach_score || 80;
+  document.getElementById('out-score').textContent  = score + '/100';
+  document.getElementById('out-reason').textContent = r.reach_reason || '';
+  document.getElementById('results').classList.add('visible');
+  document.getElementById('action-bar').classList.add('visible');
+  setTimeout(() => { document.getElementById('score-fill').style.width = score + '%'; }, 200);
+}
+
+function copyField(contentId, btnId, label) {
+  const text = document.getElementById(contentId).textContent;
+  const btn  = document.getElementById(btnId);
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = label; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function copyTagsHandler() {
+  if (!generatedData) return;
+  const btn = document.getElementById('copy-tags');
+  navigator.clipboard.writeText(generatedData.tags.join(', ')).then(() => {
+    btn.textContent = '✓ Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copy Tags'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function copyAll() {
+  if (!generatedData) return;
+  const btn  = document.getElementById('copy-all-btn');
+  const text = `TITLE:\n${generatedData.title}\n\nDESCRIPTION:\n${generatedData.description}\n\nTAGS:\n${generatedData.tags.join(', ')}`;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '⬇ Copy Full Profile'; btn.classList.remove('copied'); }, 2500);
+  });
+}
+</script>
+</body>
+</html>
